@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Smooth Glowing Cursor Follower with a Trailing Ring using requestAnimationFrame Lerp — CodeFronts</title>
+
+<style>
+.ccs-02,
+.ccs-02 *,
+.ccs-02 *::before,
+.ccs-02 *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+.ccs-02 {
+  --bg: oklch(0.15 0.03 275);
+  --text: oklch(0.96 0.01 275);
+  --accent: oklch(0.78 0.16 200);
+  --muted: color-mix(in oklab,var(--text) 55%,var(--bg));
+  color-scheme: dark;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 28px;
+  font-family: system-ui,'Segoe UI',sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.ccs-02__stage {
+  position: relative;
+  width: min(560px,100%);
+  min-height: 340px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 24px;
+  background: radial-gradient(130% 100% at 20% 0%,oklch(0.24 0.06 285),var(--bg));
+  border: 1px solid oklch(0.34 0.03 275);
+}
+
+.ccs-02__content {
+  position: relative;
+  z-index: 1;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 36px;
+  text-align: left;
+}
+
+.ccs-02__eyebrow {
+  font: 600 11px/1 ui-monospace,Menlo,monospace;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.ccs-02__content h2 {
+  font: 700 clamp(22px,4vw,30px)/1.12 system-ui,sans-serif;
+  letter-spacing: -.02em;
+}
+
+.ccs-02__content p {
+  font: 400 14.5px/1.6 system-ui,sans-serif;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+
+.ccs-02__content code {
+  font: 600 12.5px/1 ui-monospace,Menlo,monospace;
+  padding: 2px 5px;
+  border-radius: 5px;
+  background: oklch(1 0 0/.08);
+  color: var(--text);
+}
+
+.ccs-02__link {
+  align-self: flex-start;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 20px;
+  margin-top: 6px;
+  border-radius: 999px;
+  font: 600 13.5px/1 system-ui,sans-serif;
+  text-decoration: none;
+  color: var(--bg);
+  background: var(--accent);
+}
+
+.ccs-02__link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.ccs-02__dot,
+.ccs-02__ring {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .25s ease;
+}
+
+.ccs-02__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  z-index: 3;
+}
+
+.ccs-02__ring {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent);
+  box-shadow: 0 0 26px oklch(from var(--accent) l c h/.55);
+  z-index: 2;
+}
+
+.ccs-02__stage.is-live .ccs-02__dot,
+.ccs-02__stage.is-live .ccs-02__ring {
+  opacity: 1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ccs-02__stage {
+    cursor: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ccs-02__stage {
+    cursor: auto;
+  }
+
+  .ccs-02__dot,
+    .ccs-02__ring {
+    display: none;
+  }
+}
+</style>
+</head>
+<body>
+<section class="ccs-02">
+  <div class="ccs-02__stage" data-stage>
+    <div class="ccs-02__ring" data-ring aria-hidden="true"></div>
+    <div class="ccs-02__dot" data-dot aria-hidden="true"></div>
+    <div class="ccs-02__content">
+      <span class="ccs-02__eyebrow">Portfolio · hero</span>
+      <h2>A cursor that trails behind you</h2>
+      <p>The dot locks to your pointer; the ring eases in with a springy lag. Pure <code>requestAnimationFrame</code> interpolation.</p>
+      <a class="ccs-02__link" href="#" data-hover>See the work</a>
+    </div>
+  </div>
+</section>
+<script>(function () {
+  var stage = document.querySelector('.ccs-02__stage');
+  var dot = stage.querySelector('[data-dot]');
+  var ring = stage.querySelector('[data-ring]');
+  var fine = matchMedia('(hover:hover) and (pointer:fine)').matches;
+  var reduce = matchMedia('(prefers-reduced-motion:reduce)').matches;
+  if (!fine || reduce) return;                 // touch / reduced-motion → native cursor
+
+  var mx = 0, my = 0, rx = 0, ry = 0, raf = 0;
+
+  stage.addEventListener('pointerenter', function (e) {
+    var r = stage.getBoundingClientRect();
+    mx = rx = e.clientX - r.left; my = ry = e.clientY - r.top;
+    stage.classList.add('is-live');
+  });
+  stage.addEventListener('pointermove', function (e) {
+    var r = stage.getBoundingClientRect();
+    mx = e.clientX - r.left; my = e.clientY - r.top;
+  });
+  stage.addEventListener('pointerleave', function () { stage.classList.remove('is-live'); });
+
+  // hover affordance: fatten the ring over interactive elements
+  stage.querySelectorAll('[data-hover]').forEach(function (el) {
+    el.addEventListener('pointerenter', function () { ring.style.scale = '1.8'; });
+    el.addEventListener('pointerleave', function () { ring.style.scale = '1'; });
+  });
+
+  function loop() {
+    rx += (mx - rx) * 0.15; ry += (my - ry) * 0.15;
+    ring.style.transform = 'translate(' + rx + 'px,' + ry + 'px) translate(-50%,-50%)';
+    dot.style.transform  = 'translate(' + mx + 'px,' + my + 'px) translate(-50%,-50%)';
+    raf = requestAnimationFrame(loop);
+  }
+  raf = requestAnimationFrame(loop);
+})();</script>
+</body>
+</html>
